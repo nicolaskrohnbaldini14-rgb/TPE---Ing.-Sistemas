@@ -36,12 +36,12 @@ Después abrir **http://localhost:8080**. El puerto se cambia con la variable de
 
 En la página, con el usuario `ana@mail.com`:
 
-1. **✈ La aerolínea confirma un vuelo**: aparece "Viaje a MAD" con el vuelo y un aviso.
-2. **✉ Llega el correo de un hotel**: el hotel se suma al **mismo viaje** (por cercanía de fechas).
-3. **✉ Llega un correo que no es de viajes**: se descarta por el filtro de whitelist.
-4. **✖ La aerolínea cancela el vuelo**: el vuelo queda tachado y llega el aviso "Se canceló tu vuelo".
-5. **👥 Compartir con beto@mail.com**: cambiar el usuario a `beto@mail.com` y el viaje aparece en "Compartidos conmigo".
-6. **🗄 Pasó el viaje: archivar**: con `ana@mail.com`, el viaje pasa a "Archivados".
+1. La aerolínea confirma un vuelo**: aparece "Viaje a MAD" con el vuelo y un aviso.
+2. Llega el correo de un hotel**: el hotel se suma al **mismo viaje** (por cercanía de fechas).
+3. Llega un correo que no es de viajes**: se descarta por el filtro de whitelist.
+4. La aerolínea cancela el vuelo**: el vuelo queda tachado y llega el aviso "Se canceló tu vuelo".
+5. Compartir con beto@mail.com**: cambiar el usuario a `beto@mail.com` y el viaje aparece en "Compartidos conmigo".
+6. Pasó el viaje: archivar**: con `ana@mail.com`, el viaje pasa a "Archivados".
 
 ---
 
