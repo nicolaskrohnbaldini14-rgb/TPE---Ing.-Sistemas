@@ -36,7 +36,7 @@ public final class Trotamundos {
                 .registrar(new Auto());
         servidor = new Servidor(carpetaWeb);
 
-        CompartirModulo compartir = new CompartirModulo(servidor, bus);
+        CompartirModulo compartir = new CompartirModulo(servidor, bus, outbox);
         itinerario = new ItinerarioModulo(servidor, bus, outbox, tipos);
         new PanelModulo(servidor, bus, compartir);
         new NotificacionesModulo(servidor, bus, tipos);

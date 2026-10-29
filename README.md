@@ -26,7 +26,7 @@ Está hecho en **Java 17+, sin dependencias externas**: usa el servidor HTTP que
 
 Después abrir **http://localhost:8080**. El puerto se cambia con la variable de entorno `PUERTO`.
 
-**Prueba de punta a punta** (levanta el sistema, recorre los flujos por HTTP y verifica 19 cosas):
+**Pruebas** (primero la del outbox; después la de punta a punta, que levanta el sistema, recorre los flujos por HTTP y verifica 19 cosas):
 
 ```powershell
 .\probar.ps1
@@ -87,7 +87,7 @@ trotamundos-prototipo/
 | **Partner Integration** | Webhooks de 2 proveedores de ejemplo (aerolínea y hotel), cada uno con su adaptador y su formato | `ReservaDetectada` | — | ADR-0004 |
 | **Itinerary** | Evita duplicados por código de confirmación, agrupa en viajes (±2 días), carga manual, archiva | `ReservaActualizada`, `ViajeArchivado` (por outbox) | `ReservaDetectada` | ADR-0001, ADR-0010 |
 | **Dashboard Query** | Mantiene el panel ya armado de cada usuario; ignora eventos repetidos o viejos por versión | — | `ReservaActualizada`, `ViajeArchivado`, `PermisoCambiado` | ADR-0005 |
-| **Sharing** | Permisos por persona designada; `puedeVer()` es su interfaz pública | `PermisoCambiado` | `ReservaActualizada` (para saber el dueño) | ADR-0009 |
+| **Sharing** | Permisos por persona designada; `puedeVer()` es su interfaz pública | `PermisoCambiado` (por outbox) | `ReservaActualizada` (para saber el dueño) | ADR-0009 |
 | **Notification** | Arma el aviso de cada cambio y lo "envía" (consola) | — | `ReservaActualizada` | ADR-0005 |
 | **Común** | Modelo común, tipos de reserva como plugins, bus, outbox | — | — | ADR-0001, ADR-0004, ADR-0010 |
 
@@ -97,7 +97,7 @@ trotamundos-prototipo/
 - **Se comunican por eventos o por interfaz pública:** el único llamado directo entre módulos es `panel → compartir.puedeVer()`, igual que en la vista de módulos. Todo lo demás pasa por el bus.
 - **Cada módulo tiene sus tablas:** cada uno tiene su propio repositorio en `datos/` y nadie lee el de otro.
 - **Capas dentro de cada módulo:** `api` (endpoints) → `negocio` (reglas) → `datos` (repositorio).
-- **Outbox:** Itinerary guarda el cambio y su evento juntos, y un hilo aparte los publica y reintenta si falla.
+- **Outbox:** Itinerary y Sharing guardan cada cambio junto con su evento, y un hilo aparte los publica. Si un evento falla, se reintenta; después de 5 intentos pasa a "eventos fallidos" y los que vienen atrás siguen publicándose (lo verifica `PruebaOutbox`).
 - **Agregar un medio de transporte (QA-10):** crear una clase en `comun/modelo/tipos/` (por ejemplo `Tren`) y registrarla en `Trotamundos.java`. No se toca nada más.
 
 ---
@@ -111,10 +111,10 @@ Este prototipo muestra **la estructura y el flujo principal**, no todo el sistem
 | Tema | Cómo está ahora | Qué falta para la 2ª entrega | Driver / ADR |
 |---|---|---|---|
 | Persistencia | Todo en memoria: se pierde al reiniciar | Base de datos (por ej. PostgreSQL) con un esquema por módulo; outbox como tabla en la misma transacción | ADR-0001, ADR-0010 |
-| Outbox | Solo lo usa Itinerary; Mail Connector, Partner Integration y Sharing publican directo en el bus | Que todos los módulos que cambian datos publiquen por outbox | QA-5, ADR-0010 |
+| Outbox | Lo usan Itinerary y Sharing. Mail Connector y Partner Integration publican directo en el bus (si se pierde un evento, el proveedor puede volver a mandarlo) | Que también publiquen por outbox, y una pantalla para revisar y reenviar los eventos fallidos | QA-5, ADR-0010 |
 | Login | Simulado con el encabezado `X-Usuario` | Login con proveedor de identidad (OIDC) y token en cada pedido; API Gateway real | QA-8, QA-9 |
 | Réplicas, zonas y regiones | Una sola instancia | Contenedores con autoescalado, base replicada, rolling update, varias regiones | QA-4, QA-5, ADR-0002, ADR-0007 |
-| Pruebas | Una prueba de punta a punta hecha a mano | JUnit, pruebas de contrato contra `openapi.yaml`, prueba de carga para medir QA-2 y QA-5 | QA-2, QA-5 |
+| Pruebas | Una prueba del outbox y una de punta a punta, hechas a mano | JUnit, pruebas de contrato contra `openapi.yaml`, prueba de carga para medir QA-2 y QA-5 | QA-2, QA-5 |
 | Fronteras entre módulos | Se respetan por disciplina | Hacerlas cumplir automáticamente (módulos de Java o reglas tipo ArchUnit) | ADR-0001 |
 
 ### Funcionalidad incompleta
@@ -134,4 +134,4 @@ Este prototipo muestra **la estructura y el flujo principal**, no todo el sistem
 
 ### Diferencia con la Wiki
 
-- La Wiki dice que todo evento pasa por el outbox. En el prototipo solo lo hace Itinerary (ver la primera tabla).
+- La Wiki dice que todo evento pasa por el outbox. En el prototipo lo hacen Itinerary y Sharing; los módulos de ingesta todavía publican directo (ver la primera tabla).

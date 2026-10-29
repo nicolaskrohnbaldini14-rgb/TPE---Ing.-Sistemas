@@ -1,7 +1,7 @@
 package trotamundos.compartir.negocio;
 
-import trotamundos.comun.eventos.BusDeEventos;
 import trotamundos.comun.eventos.Evento;
+import trotamundos.comun.eventos.Outbox;
 import trotamundos.compartir.datos.PermisosRepositorio;
 
 import java.util.LinkedHashMap;
@@ -21,36 +21,28 @@ public final class ServicioCompartir {
     }
 
     private final PermisosRepositorio repositorio;
-    private final BusDeEventos bus;
+    private final Outbox outbox;
 
-    public ServicioCompartir(PermisosRepositorio repositorio, BusDeEventos bus) {
+    public ServicioCompartir(PermisosRepositorio repositorio, Outbox outbox) {
         this.repositorio = repositorio;
-        this.bus = bus;
+        this.outbox = outbox;
     }
 
     public synchronized void registrarDuenio(String viajeId, String usuario) {
         repositorio.registrarDuenio(viajeId, usuario);
     }
 
-    public void compartir(String duenio, String viajeId, String email) {
-        Evento evento;
-        synchronized (this) {
-            validarDuenio(duenio, viajeId);
-            repositorio.agregar(viajeId, email.trim().toLowerCase());
-            evento = permisoCambiado(duenio, viajeId, email, "OTORGADO");
-        }
-        // Se publica fuera del bloque sincronizado para no trabar a los módulos que consultan puedeVer().
-        bus.publicar(evento);
+    /** El permiso y su evento se guardan juntos (ADR-0010): si se cae la instancia, el evento no se pierde. */
+    public synchronized void compartir(String duenio, String viajeId, String email) {
+        validarDuenio(duenio, viajeId);
+        repositorio.agregar(viajeId, email.trim().toLowerCase());
+        outbox.guardar(permisoCambiado(duenio, viajeId, email, "OTORGADO"));
     }
 
-    public void revocar(String duenio, String viajeId, String email) {
-        Evento evento;
-        synchronized (this) {
-            validarDuenio(duenio, viajeId);
-            repositorio.quitar(viajeId, email.trim().toLowerCase());
-            evento = permisoCambiado(duenio, viajeId, email, "REVOCADO");
-        }
-        bus.publicar(evento);
+    public synchronized void revocar(String duenio, String viajeId, String email) {
+        validarDuenio(duenio, viajeId);
+        repositorio.quitar(viajeId, email.trim().toLowerCase());
+        outbox.guardar(permisoCambiado(duenio, viajeId, email, "REVOCADO"));
     }
 
     public synchronized Set<String> invitados(String duenio, String viajeId) {

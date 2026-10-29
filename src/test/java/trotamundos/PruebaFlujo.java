@@ -95,8 +95,9 @@ public final class PruebaFlujo {
         verificar(post("/v1/viajes/" + viajeId + "/compartir", ANA, "{\"email\":\"beto@mail.com\"}").statusCode() == 201,
                 "la dueña comparte el viaje con Beto (201)");
         verificar(get("/v1/panel/viajes/" + viajeId, BETO).statusCode() == 200, "Beto ya puede ver el viaje (200)");
-        verificar(((List<?>) cuerpo(get("/v1/panel", BETO)).get("compartidosConmigo")).size() == 1,
-                "el viaje aparece en 'compartidos conmigo' de Beto");
+        // PermisoCambiado sale por el outbox, así que el panel de Beto se actualiza unos milisegundos después.
+        esperarPanel(BETO, p -> ((List<?>) p.get("compartidosConmigo")).size() == 1);
+        verificar(true, "el viaje aparece en 'compartidos conmigo' de Beto");
         verificar(enviar("DELETE", "/v1/viajes/" + viajeId + "/compartir/beto@mail.com", ANA, null).statusCode() == 204,
                 "la dueña revoca el permiso (204)");
         verificar(get("/v1/panel/viajes/" + viajeId, BETO).statusCode() == 403, "después de revocar, Beto ya no lo ve (403)");
