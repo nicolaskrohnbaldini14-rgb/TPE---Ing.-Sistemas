@@ -1,0 +1,166 @@
+openapi: 3.1.0
+info:
+  title: Trotamundos – API del prototipo
+  version: 0.1.0
+  description: >
+    Contrato de los endpoints que implementa el prototipo (1ª entrega).
+    El login está simulado con el encabezado X-Usuario.
+servers:
+  - url: http://localhost:8080
+components:
+  parameters:
+    Usuario:
+      name: X-Usuario
+      in: header
+      required: true
+      description: Email del usuario logueado (simula el login).
+      schema: { type: string, example: ana@mail.com }
+  schemas:
+    Reserva:
+      type: object
+      properties:
+        id: { type: string }
+        usuario: { type: string }
+        tipo: { type: string, enum: [vuelo, hotel, auto] }
+        proveedor: { type: string }
+        codigoConfirmacion: { type: string }
+        estado: { type: string, enum: [CONFIRMADA, CAMBIADA, CANCELADA] }
+        inicio: { type: string, example: "2026-12-01T10:00" }
+        fin: { type: string, example: "2026-12-02T04:00" }
+        origen: { type: string }
+        destino: { type: string }
+        fuente: { type: string, enum: [CORREO, PROVEEDOR, MANUAL] }
+        detalles: { type: object, description: "Datos propios del tipo (numeroVuelo, hotel, rentadora)" }
+    Viaje:
+      type: object
+      properties:
+        id: { type: string }
+        nombre: { type: string }
+        estado: { type: string, enum: [ACTIVO, ARCHIVADO] }
+        rol: { type: string, enum: [DUENIO, INVITADO] }
+        inicio: { type: string }
+        fin: { type: string }
+        reservas: { type: array, items: { $ref: "#/components/schemas/Reserva" } }
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+paths:
+  /v1/webhooks/{proveedor}:
+    post:
+      summary: Un proveedor avisa una reserva o un cambio, en su propio formato (Partner Integration)
+      parameters:
+        - { name: proveedor, in: path, required: true, schema: { type: string, enum: [aerolinea-demo, hotel-demo] } }
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        "202": { description: Recibido y traducido al modelo común }
+        "404": { description: Proveedor desconocido }
+        "422": { description: Mensaje no interpretable }
+  /v1/correos/aviso:
+    post:
+      summary: Simula el aviso push del proveedor de correo (Mail Connector)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [buzon, remitente, cuerpo]
+              properties:
+                buzon: { type: string }
+                remitente: { type: string }
+                asunto: { type: string }
+                cuerpo: { type: string }
+      responses:
+        "202": { description: "procesado=true si pasó el filtro por whitelist" }
+  /v1/correos/whitelist:
+    get:
+      summary: Remitentes seguros del usuario y catálogo global
+      parameters: [ { $ref: "#/components/parameters/Usuario" } ]
+      responses: { "200": { description: OK } }
+    put:
+      summary: Reemplaza la whitelist del usuario
+      parameters: [ { $ref: "#/components/parameters/Usuario" } ]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { remitentes: { type: array, items: { type: string } } } }
+      responses: { "200": { description: OK } }
+  /v1/reservas:
+    post:
+      summary: Alta manual de una reserva (Itinerary)
+      parameters: [ { $ref: "#/components/parameters/Usuario" } ]
+      requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/Reserva" } } } }
+      responses:
+        "201": { description: "Creada; devuelve reserva, viajeId y version" }
+        "400": { description: Datos inválidos o tipo de reserva no registrado, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+  /v1/reservas/{id}:
+    put:
+      summary: Modificación manual
+      parameters: [ { $ref: "#/components/parameters/Usuario" }, { name: id, in: path, required: true, schema: { type: string } } ]
+      requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/Reserva" } } } }
+      responses: { "200": { description: Modificada }, "404": { description: No existe o no es del usuario } }
+    delete:
+      summary: Baja manual
+      parameters: [ { $ref: "#/components/parameters/Usuario" }, { name: id, in: path, required: true, schema: { type: string } } ]
+      responses: { "204": { description: Eliminada }, "404": { description: No existe o no es del usuario } }
+  /v1/viajes/{viajeId}:
+    get:
+      summary: Detalle de un viaje propio, leído de Itinerary
+      parameters: [ { $ref: "#/components/parameters/Usuario" }, { name: viajeId, in: path, required: true, schema: { type: string } } ]
+      responses: { "200": { description: OK }, "404": { description: No existe } }
+  /v1/admin/archivar:
+    post:
+      summary: Dispara el archivado de viajes terminados (también corre solo cada minuto)
+      parameters:
+        - { name: ahora, in: query, required: false, schema: { type: string, example: "2027-01-01T00:00" } }
+      responses: { "200": { description: "Cantidad de viajes archivados" } }
+  /v1/panel:
+    get:
+      summary: Panel precalculado del usuario (Dashboard Query)
+      parameters: [ { $ref: "#/components/parameters/Usuario" } ]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  usuario: { type: string }
+                  viajes: { type: array, items: { $ref: "#/components/schemas/Viaje" } }
+                  archivados: { type: array, items: { $ref: "#/components/schemas/Viaje" } }
+                  compartidosConmigo: { type: array, items: { $ref: "#/components/schemas/Viaje" } }
+  /v1/panel/viajes/{viajeId}:
+    get:
+      summary: Un viaje del panel; lo ven el dueño y las personas designadas
+      parameters: [ { $ref: "#/components/parameters/Usuario" }, { name: viajeId, in: path, required: true, schema: { type: string } } ]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Viaje" } } } }
+        "403": { description: No es el dueño ni una persona designada }
+        "404": { description: No existe }
+  /v1/viajes/{viajeId}/compartir:
+    post:
+      summary: Compartir un viaje con una persona designada (Sharing)
+      parameters: [ { $ref: "#/components/parameters/Usuario" }, { name: viajeId, in: path, required: true, schema: { type: string } } ]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [email], properties: { email: { type: string } } }
+      responses: { "201": { description: "Compartido; devuelve el link" }, "403": { description: Solo el dueño puede compartir } }
+    get:
+      summary: Personas con las que se compartió el viaje
+      parameters: [ { $ref: "#/components/parameters/Usuario" }, { name: viajeId, in: path, required: true, schema: { type: string } } ]
+      responses: { "200": { description: OK }, "403": { description: Solo el dueño } }
+  /v1/viajes/{viajeId}/compartir/{email}:
+    delete:
+      summary: Revocar el permiso de una persona
+      parameters:
+        - { $ref: "#/components/parameters/Usuario" }
+        - { name: viajeId, in: path, required: true, schema: { type: string } }
+        - { name: email, in: path, required: true, schema: { type: string } }
+      responses: { "204": { description: Revocado }, "403": { description: Solo el dueño } }
+  /v1/notificaciones:
+    get:
+      summary: Avisos enviados al usuario (Notification)
+      parameters: [ { $ref: "#/components/parameters/Usuario" } ]
+      responses: { "200": { description: OK } }

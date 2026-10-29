@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trotamundos – Prototipo</title>
+<style>
+  :root { --fondo:#f6f7f9; --tarjeta:#fff; --texto:#1d2330; --suave:#5d6677; --borde:#dde1e8; --acento:#2f6fde; --ok:#1f8a4c; --mal:#c2392f; --aviso:#b7791f; }
+  @media (prefers-color-scheme: dark) { :root { --fondo:#14171c; --tarjeta:#1d2129; --texto:#e7eaf0; --suave:#9aa3b2; --borde:#303643; --acento:#6c9cf0; --ok:#4cc184; --mal:#f07167; --aviso:#e0b04a; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, sans-serif; background:var(--fondo); color:var(--texto); }
+  header { padding:16px; border-bottom:1px solid var(--borde); display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+  header h1 { margin:0; font-size:20px; flex:1 1 auto; }
+  main { display:grid; grid-template-columns: 2fr 1fr; gap:16px; padding:16px; max-width:1100px; margin:0 auto; }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+  section { background:var(--tarjeta); border:1px solid var(--borde); border-radius:10px; padding:16px; }
+  h2 { font-size:16px; margin:0 0 12px; }
+  h3 { font-size:15px; margin:0 0 4px; }
+  input { padding:8px; border:1px solid var(--borde); border-radius:6px; background:var(--tarjeta); color:var(--texto); min-width:200px; }
+  button { padding:8px 10px; border:1px solid var(--borde); border-radius:6px; background:var(--tarjeta); color:var(--texto); cursor:pointer; text-align:left; }
+  button:hover { border-color:var(--acento); }
+  .viaje { border:1px solid var(--borde); border-radius:8px; padding:12px; margin-bottom:12px; }
+  .meta { color:var(--suave); font-size:13px; }
+  .reserva { display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-top:1px dashed var(--borde); font-size:14px; }
+  .estado { font-weight:600; font-size:12px; }
+  .CONFIRMADA { color:var(--ok); } .CAMBIADA { color:var(--aviso); } .CANCELADA { color:var(--mal); text-decoration:line-through; }
+  .acciones { display:grid; gap:8px; }
+  .aviso { font-size:14px; padding:6px 0; border-top:1px dashed var(--borde); }
+  .vacio { color:var(--suave); font-size:14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Trotamundos · prototipo</h1>
+  <label>Usuario <input id="usuario" value="ana@mail.com"></label>
+</header>
+<main>
+  <section>
+    <h2>Mis viajes</h2>
+    <div id="viajes"></div>
+    <h2>Compartidos conmigo</h2>
+    <div id="compartidos"></div>
+    <h2>Archivados</h2>
+    <div id="archivados"></div>
+  </section>
+  <div style="display:grid; gap:16px; align-content:start">
+    <section>
+      <h2>Simular lo que llega de afuera</h2>
+      <div class="acciones">
+        <button data-accion="vuelo">✈ La aerolínea confirma un vuelo (webhook)</button>
+        <button data-accion="hotel">✉ Llega el correo de un hotel</button>
+        <button data-accion="spam">✉ Llega un correo que no es de viajes</button>
+        <button data-accion="cancelar">✖ La aerolínea cancela el vuelo</button>
+        <button data-accion="compartir">👥 Compartir mi primer viaje con beto@mail.com</button>
+        <button data-accion="archivar">🗄 Pasó el viaje: archivar</button>
+      </div>
+      <p class="meta" id="resultado"></p>
+    </section>
+    <section>
+      <h2>Avisos</h2>
+      <div id="avisos"></div>
+    </section>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const usuario = () => $('usuario').value.trim().toLowerCase();
+const fecha = (f) => (f || '').replace('T', ' ');
+
+async function api(metodo, ruta, cuerpo, conUsuario = true) {
+  const encabezados = { 'Content-Type': 'application/json' };
+  if (conUsuario) encabezados['X-Usuario'] = usuario();
+  const r = await fetch(ruta, { method: metodo, headers: encabezados, body: cuerpo ? JSON.stringify(cuerpo) : undefined });
+  const texto = await r.text();
+  return { estado: r.status, datos: texto ? JSON.parse(texto) : null };
+}
+
+function vuelo(estado) {
+  return { pnr: 'ABC123', pasajero_email: usuario(), vuelo: 'AR1132', desde: 'EZE', hacia: 'MAD',
+           salida: '2026-12-01T10:00', llegada: '2026-12-02T04:00', estado };
+}
+
+const acciones = {
+  vuelo: () => api('POST', '/v1/webhooks/aerolinea-demo', vuelo('CONFIRMED'), false),
+  cancelar: () => api('POST', '/v1/webhooks/aerolinea-demo', vuelo('CANCELLED'), false),
+  hotel: () => api('POST', '/v1/correos/aviso', { buzon: usuario(), remitente: 'reservas@hotel-demo.com', asunto: 'Tu reserva',
+    cuerpo: 'Código: H-778\nHotel: Gran Vía\nCiudad: MAD\nEntrada: 2026-12-02T15:00\nSalida: 2026-12-06T11:00' }, false),
+  spam: () => api('POST', '/v1/correos/aviso', { buzon: usuario(), remitente: 'ofertas@spam.com', asunto: 'Promo', cuerpo: 'Comprá ya' }, false),
+  compartir: async () => {
+    const panel = (await api('GET', '/v1/panel')).datos;
+    if (!panel.viajes.length) return { estado: 0, datos: { error: 'No tenés viajes para compartir' } };
+    return api('POST', '/v1/viajes/' + panel.viajes[0].id + '/compartir', { email: 'beto@mail.com' });
+  },
+  archivar: () => api('POST', '/v1/admin/archivar?ahora=2027-01-01T00:00', null, false),
+};
+
+document.querySelectorAll('[data-accion]').forEach((b) => b.addEventListener('click', async () => {
+  const r = await acciones[b.dataset.accion]();
+  $('resultado').textContent = 'Respuesta ' + r.estado + ': ' + JSON.stringify(r.datos);
+  setTimeout(refrescar, 300);
+}));
+
+function pintarViajes(lista, contenedor) {
+  if (!lista.length) { contenedor.innerHTML = '<p class="vacio">Nada por acá.</p>'; return; }
+  contenedor.innerHTML = '';
+  for (const v of lista) {
+    const div = document.createElement('div');
+    div.className = 'viaje';
+    const titulo = document.createElement('h3');
+    titulo.textContent = v.nombre;
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = fecha(v.inicio) + ' → ' + fecha(v.fin) + (v.rol === 'INVITADO' ? ' · compartido por otra persona' : '');
+    div.append(titulo, meta);
+    for (const r of v.reservas) {
+      const fila = document.createElement('div');
+      fila.className = 'reserva';
+      const que = r.tipo === 'vuelo' ? '✈ ' + r.detalles.numeroVuelo + ' ' + (r.origen || '') + '→' + (r.destino || '')
+                : r.tipo === 'hotel' ? '🏨 ' + r.detalles.hotel
+                : '🚗 ' + (r.detalles.rentadora || r.tipo);
+      const izquierda = document.createElement('span');
+      izquierda.textContent = que + ' · ' + fecha(r.inicio) + ' · vía ' + r.fuente.toLowerCase();
+      const estado = document.createElement('span');
+      estado.className = 'estado ' + r.estado;
+      estado.textContent = r.estado;
+      fila.append(izquierda, estado);
+      div.append(fila);
+    }
+    contenedor.append(div);
+  }
+}
+
+async function refrescar() {
+  if (!usuario()) return;
+  const panel = (await api('GET', '/v1/panel')).datos;
+  pintarViajes(panel.viajes, $('viajes'));
+  pintarViajes(panel.compartidosConmigo, $('compartidos'));
+  pintarViajes(panel.archivados, $('archivados'));
+  const avisos = (await api('GET', '/v1/notificaciones')).datos.avisos;
+  $('avisos').innerHTML = '';
+  if (!avisos.length) $('avisos').innerHTML = '<p class="vacio">Sin avisos.</p>';
+  for (const a of avisos) {
+    const p = document.createElement('div');
+    p.className = 'aviso';
+    p.textContent = a.fecha.replace('T', ' ') + ' — ' + a.mensaje;
+    $('avisos').append(p);
+  }
+}
+
+$('usuario').addEventListener('change', refrescar);
+refrescar();
+setInterval(refrescar, 2000);
+</script>
+</body>
+</html>
