@@ -26,11 +26,26 @@ Está hecho en **Java 17+, sin dependencias externas**: usa el servidor HTTP que
 
 Después abrir **http://localhost:8080**. El puerto se cambia con la variable de entorno `PUERTO`.
 
-**Pruebas** (primero la del outbox; después la de punta a punta, que levanta el sistema, recorre los flujos por HTTP y verifica 26 cosas):
+**Pruebas:** primero la de fronteras entre módulos, después la del outbox, y al final la de punta a punta, que levanta el sistema, recorre los flujos por HTTP y verifica 26 cosas.
 
 ```powershell
 .\probar.ps1
 ```
+
+**Prueba de carga del panel** (tarda unos segundos más, por eso va aparte):
+
+```powershell
+.\carga.ps1
+```
+
+Pide el panel 10.000 veces con 50 pedidos en paralelo, primero solo con lecturas y después mientras entran webhooks. Resultado en una notebook:
+
+| Escenario | Pedidos | p50 | p95 | p99 |
+|---|---|---|---|---|
+| Solo lecturas | 10.000 | 13 ms | 35 ms | 62 ms |
+| Lecturas mientras entran ~1.000 webhooks | 10.000 | 12 ms | 29 ms | 47 ms |
+
+Muy por debajo de los 800 ms de QA-2, y la ingesta no frena al panel, gracias al CQRS (ADR-0005). La segunda corrida da un poco mejor porque Java ya está "en caliente". Es una medición local con datos en memoria: sirve como orden de magnitud, no reemplaza una prueba en el entorno real.
 
 ### Demo sugerida para la entrega
 
@@ -77,11 +92,13 @@ trotamundos-prototipo/
 │   └── recomendacion/              ← Recommendation: sugerencias + human-in-the-loop (Iteración 5)
 │       ├── api/  negocio/  datos/
 ├── src/test/java/trotamundos/
+│   ├── PruebaFronteras.java        ← revisa que ningún módulo saltee las fronteras (ADR-0001)
+│   ├── PruebaOutbox.java           ← prueba del outbox
 │   ├── PruebaFlujo.java            ← prueba de punta a punta (incluye el recomendador)
-│   └── PruebaOutbox.java           ← prueba del outbox
+│   └── PruebaCarga.java            ← prueba de carga del panel (QA-2)
 ├── web/index.html                  ← página mínima para mostrar el prototipo
 ├── openapi.yaml                    ← contrato de la API (spec-driven)
-└── compilar / ejecutar / probar    ← scripts .ps1 (Windows) y .sh (Linux/macOS)
+└── compilar / ejecutar / probar / carga   ← scripts .ps1 (Windows) y .sh (Linux/macOS)
 ```
 
 ### Qué hace cada módulo y de qué decisión sale
@@ -121,9 +138,9 @@ Este prototipo muestra **la estructura y el flujo principal**, no todo el sistem
 | Persistencia | Todo en memoria: se pierde al reiniciar | Base de datos (por ej. PostgreSQL) con un esquema por módulo; outbox como tabla en la misma transacción | ADR-0001, ADR-0010 |
 | Outbox | Lo usan Itinerary, Sharing y Recommendation. Mail Connector y Partner Integration publican directo en el bus (si se pierde un evento, el proveedor puede volver a mandarlo) | Que también publiquen por outbox, y una pantalla para revisar y reenviar los eventos fallidos | QA-5, ADR-0010 |
 | Login | Simulado con el encabezado `X-Usuario` | Login con proveedor de identidad (OIDC) y token en cada pedido; API Gateway real | QA-8, QA-9 |
-| Réplicas, zonas y regiones | Una sola instancia | Contenedores con autoescalado, base replicada, rolling update, varias regiones | QA-4, QA-5, ADR-0002, ADR-0007 |
-| Pruebas | Una prueba del outbox y una de punta a punta, hechas a mano | JUnit, pruebas de contrato contra `openapi.yaml`, prueba de carga para medir QA-2 y QA-5 | QA-2, QA-5 |
-| Fronteras entre módulos | Se respetan por disciplina | Hacerlas cumplir automáticamente (módulos de Java o reglas tipo ArchUnit) | ADR-0001 |
+| Réplicas, zonas y regiones | Una sola instancia, que cumple los dos roles (web y procesamiento) a la vez | Contenedores con autoescalado por rol, base replicada, rolling update, varias regiones. Los roles necesitan la base compartida: sin ella no se pueden separar | QA-4, QA-5, ADR-0002, ADR-0007, ADR-0021 |
+| Pruebas | Fronteras, outbox, punta a punta y una prueba de carga local, hechas a mano | JUnit, pruebas de contrato contra `openapi.yaml`, prueba de carga en el entorno real con 4 M de usuarios | QA-2, QA-5 |
+| Fronteras entre módulos | `PruebaFronteras` revisa los `import` de cada módulo y falla si alguno saltea la vista de módulos | Que el chequeo corra en cada compilación (módulos de Java o ArchUnit) | ADR-0001 |
 
 ### Funcionalidad incompleta
 
