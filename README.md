@@ -15,13 +15,13 @@ Está hecho en **Java 17+, sin dependencias externas**: usa el servidor HTTP que
 **Windows (PowerShell):**
 
 ```powershell
-.\ejecutar.ps1
+.\scripts\ejecutar.ps1
 ```
 
 **Linux / macOS:**
 
 ```bash
-./ejecutar.sh
+./scripts/ejecutar.sh
 ```
 
 Después abrir **http://localhost:8080**. El puerto se cambia con la variable de entorno `PUERTO`.
@@ -29,14 +29,16 @@ Después abrir **http://localhost:8080**. El puerto se cambia con la variable de
 **Pruebas:** primero la de fronteras entre módulos, después la del outbox, y al final la de punta a punta, que levanta el sistema, recorre los flujos por HTTP y verifica 26 cosas.
 
 ```powershell
-.\probar.ps1
+.\scripts\probar.ps1
 ```
 
 **Prueba de carga del panel** (tarda unos segundos más, por eso va aparte):
 
 ```powershell
-.\carga.ps1
+.\scripts\carga.ps1
 ```
+
+En Linux / macOS son los mismos nombres con `.sh` (por ejemplo, `./scripts/probar.sh`).
 
 Pide el panel 10.000 veces con 50 pedidos en paralelo, primero solo con lecturas y después mientras entran webhooks. Resultado en una notebook:
 
@@ -98,7 +100,7 @@ trotamundos-prototipo/
 │   └── PruebaCarga.java            ← prueba de carga del panel (QA-2)
 ├── web/index.html                  ← página mínima para mostrar el prototipo
 ├── openapi.yaml                    ← contrato de la API (spec-driven)
-└── compilar / ejecutar / probar / carga   ← scripts .ps1 (Windows) y .sh (Linux/macOS)
+└── scripts/                        ← compilar, ejecutar, probar y carga, en .ps1 (Windows) y .sh (Linux/macOS)
 ```
 
 ### Qué hace cada módulo y de qué decisión sale
