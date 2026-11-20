@@ -35,7 +35,7 @@
 <body>
 <header>
   <h1>Trotamundos · prototipo</h1>
-  <label>Usuario <input id="usuario" value="ana@mail.com"></label>
+  <label>Usuario <input id="usuario" value="martina@mail.com"></label>
 </header>
 <main>
   <section>
@@ -54,7 +54,7 @@
         <button data-accion="hotel">✉ Llega el correo de un hotel</button>
         <button data-accion="spam">✉ Llega un correo que no es de viajes</button>
         <button data-accion="cancelar">✖ La aerolínea cancela el vuelo</button>
-        <button data-accion="compartir">👥 Compartir mi primer viaje con beto@mail.com</button>
+        <button data-accion="compartir">👥 Compartir mi primer viaje con nicolas@mail.com</button>
         <button data-accion="archivar">🗄 Pasó el viaje: archivar</button>
       </div>
       <p class="meta" id="resultado"></p>
@@ -97,7 +97,7 @@ const acciones = {
   compartir: async () => {
     const panel = (await api('GET', '/v1/panel')).datos;
     if (!panel.viajes.length) return { estado: 0, datos: { error: 'No tenés viajes para compartir' } };
-    return api('POST', '/v1/viajes/' + panel.viajes[0].id + '/compartir', { email: 'beto@mail.com' });
+    return api('POST', '/v1/viajes/' + panel.viajes[0].id + '/compartir', { email: 'nicolas@mail.com' });
   },
   archivar: () => api('POST', '/v1/admin/archivar?ahora=2027-01-01T00:00', null, false),
 };

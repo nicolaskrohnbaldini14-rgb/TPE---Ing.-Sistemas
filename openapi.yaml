@@ -14,7 +14,7 @@ components:
       in: header
       required: true
       description: Email del usuario logueado (simula el login).
-      schema: { type: string, example: ana@mail.com }
+      schema: { type: string, example: martina@mail.com }
   schemas:
     Reserva:
       type: object

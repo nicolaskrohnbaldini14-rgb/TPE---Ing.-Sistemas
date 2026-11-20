@@ -17,8 +17,8 @@ import java.util.function.Predicate;
  */
 public final class PruebaFlujo {
 
-    private static final String ANA = "ana@mail.com";
-    private static final String BETO = "beto@mail.com";
+    private static final String MARTINA = "martina@mail.com";
+    private static final String NICOLAS = "nicolas@mail.com";
 
     private static HttpClient cliente;
     private static String base;
@@ -42,101 +42,101 @@ public final class PruebaFlujo {
     private static void probar() throws Exception {
         // UC-4 + QA-6: la aerolínea confirma un vuelo por webhook, en su propio formato.
         int estado = post("/v1/webhooks/aerolinea-demo", null, """
-                {"pnr":"ABC123","pasajero_email":"ana@mail.com","vuelo":"AR1132","desde":"EZE","hacia":"MAD",
+                {"pnr":"ABC123","pasajero_email":"martina@mail.com","vuelo":"AR1132","desde":"EZE","hacia":"MAD",
                  "salida":"2026-12-01T10:00","llegada":"2026-12-02T04:00","estado":"CONFIRMED"}""").statusCode();
         verificar(estado == 202, "el webhook de la aerolínea se acepta (202)");
 
         // UC-2 + UC-3: llega un correo de un hotel del catálogo; pasa el filtro y se parsea.
         Map<String, Object> correo = cuerpo(post("/v1/correos/aviso", null, """
-                {"buzon":"ana@mail.com","remitente":"reservas@hotel-demo.com","asunto":"Tu reserva",
+                {"buzon":"martina@mail.com","remitente":"reservas@hotel-demo.com","asunto":"Tu reserva",
                  "cuerpo":"Código: H-778\\nHotel: Gran Vía\\nCiudad: MAD\\nEntrada: 2026-12-02T15:00\\nSalida: 2026-12-06T11:00"}"""));
         verificar(Boolean.TRUE.equals(correo.get("procesado")), "el correo del hotel pasa el filtro");
 
         Map<String, Object> spam = cuerpo(post("/v1/correos/aviso", null, """
-                {"buzon":"ana@mail.com","remitente":"ofertas@spam.com","asunto":"Promo","cuerpo":"Comprá ya"}"""));
+                {"buzon":"martina@mail.com","remitente":"ofertas@spam.com","asunto":"Promo","cuerpo":"Comprá ya"}"""));
         verificar(Boolean.FALSE.equals(spam.get("procesado")), "un correo que no es de viajes queda filtrado");
 
         // UC-1 + UC-6: el panel muestra un solo viaje con el vuelo y el hotel juntos.
-        Map<String, Object> panel = esperarPanel(ANA, p -> viajes(p).size() == 1 && reservas(viajes(p).get(0)).size() == 2);
+        Map<String, Object> panel = esperarPanel(MARTINA, p -> viajes(p).size() == 1 && reservas(viajes(p).get(0)).size() == 2);
         String viajeId = String.valueOf(viajes(panel).get(0).get("id"));
         verificar(true, "el panel agrupa vuelo y hotel en un mismo viaje (" + viajes(panel).get(0).get("nombre") + ")");
 
         // QA-1: la aerolínea cancela; el panel y las notificaciones se actualizan.
         String cancelacion = """
-                {"pnr":"ABC123","pasajero_email":"ana@mail.com","vuelo":"AR1132","desde":"EZE","hacia":"MAD",
+                {"pnr":"ABC123","pasajero_email":"martina@mail.com","vuelo":"AR1132","desde":"EZE","hacia":"MAD",
                  "salida":"2026-12-01T10:00","llegada":"2026-12-02T04:00","estado":"CANCELLED"}""";
         post("/v1/webhooks/aerolinea-demo", null, cancelacion);
-        esperarPanel(ANA, p -> reservas(viajes(p).get(0)).stream().anyMatch(r -> "CANCELADA".equals(r.get("estado"))));
+        esperarPanel(MARTINA, p -> reservas(viajes(p).get(0)).stream().anyMatch(r -> "CANCELADA".equals(r.get("estado"))));
         verificar(true, "la cancelación llega al panel");
-        verificar(String.valueOf(cuerpo(get("/v1/notificaciones", ANA)).get("avisos")).contains("Se canceló tu vuelo AR1132"),
+        verificar(String.valueOf(cuerpo(get("/v1/notificaciones", MARTINA)).get("avisos")).contains("Se canceló tu vuelo AR1132"),
                 "se avisa la cancelación al usuario");
 
         // UC-9 + QA-13: ante la cancelación aparece una alternativa en el panel.
-        Map<String, Object> conSugerencia = esperarPanel(ANA, p -> sugerencias(p).size() == 1);
+        Map<String, Object> conSugerencia = esperarPanel(MARTINA, p -> sugerencias(p).size() == 1);
         Map<String, Object> primera = sugerencias(conSugerencia).get(0);
         verificar("UX42".equals(alternativa(primera).get("numeroVuelo")),
                 "se sugiere un vuelo alternativo: el más barato (UX42, con escala), porque " + primera.get("motivo"));
 
         // UC-10: el usuario ajusta "prefiero sin escalas" y la sugerencia cambia.
-        Map<String, Object> ajuste = cuerpo(post("/v1/sugerencias/" + primera.get("id") + "/respuesta", ANA,
+        Map<String, Object> ajuste = cuerpo(post("/v1/sugerencias/" + primera.get("id") + "/respuesta", MARTINA,
                 "{\"accion\":\"AJUSTAR\",\"preferencia\":\"sinEscalas\"}"));
         verificar("IB6844".equals(alternativa(mapa(ajuste, "nueva")).get("numeroVuelo")),
                 "después de pedir 'sin escalas', la nueva sugerencia es un vuelo directo (IB6844)");
-        esperarPanel(ANA, p -> sugerencias(p).size() == 1
+        esperarPanel(MARTINA, p -> sugerencias(p).size() == 1
                 && "IB6844".equals(alternativa(sugerencias(p).get(0)).get("numeroVuelo")));
         verificar(true, "el panel reemplaza la sugerencia vieja por la nueva");
 
         // Rechazar: no se vuelve a sugerir esa opción y se respeta la preferencia aprendida.
-        Map<String, Object> rechazo = cuerpo(post("/v1/sugerencias/" + mapa(ajuste, "nueva").get("id") + "/respuesta", ANA,
+        Map<String, Object> rechazo = cuerpo(post("/v1/sugerencias/" + mapa(ajuste, "nueva").get("id") + "/respuesta", MARTINA,
                 "{\"accion\":\"RECHAZAR\"}"));
         verificar("AR1134".equals(alternativa(mapa(rechazo, "nueva")).get("numeroVuelo")),
                 "al rechazar, se sugiere otra opción y sigue siendo directa (AR1134)");
 
         // Aceptar: la sugerencia sale del panel y los pesos del usuario quedan reforzados.
-        cuerpo(post("/v1/sugerencias/" + mapa(rechazo, "nueva").get("id") + "/respuesta", ANA, "{\"accion\":\"ACEPTAR\"}"));
-        esperarPanel(ANA, p -> sugerencias(p).isEmpty());
+        cuerpo(post("/v1/sugerencias/" + mapa(rechazo, "nueva").get("id") + "/respuesta", MARTINA, "{\"accion\":\"ACEPTAR\"}"));
+        esperarPanel(MARTINA, p -> sugerencias(p).isEmpty());
         verificar(true, "al aceptar, la sugerencia sale del panel");
-        Map<String, Object> pesos = mapa(cuerpo(get("/v1/preferencias", ANA)), "pesos");
+        Map<String, Object> pesos = mapa(cuerpo(get("/v1/preferencias", MARTINA)), "pesos");
         verificar(((Number) pesos.get("sinEscalas")).doubleValue() > 1.0,
                 "el sistema aprendió la preferencia: el peso de 'sin escalas' pasó de 0,5 a " + pesos.get("sinEscalas"));
-        verificar(post("/v1/sugerencias/" + primera.get("id") + "/respuesta", ANA, "{\"accion\":\"ACEPTAR\"}").statusCode() == 404,
+        verificar(post("/v1/sugerencias/" + primera.get("id") + "/respuesta", MARTINA, "{\"accion\":\"ACEPTAR\"}").statusCode() == 404,
                 "una sugerencia ya respondida no se puede responder de nuevo (404)");
 
         // Idempotencia: el mismo webhook repetido no duplica nada.
         post("/v1/webhooks/aerolinea-demo", null, cancelacion);
         Thread.sleep(300);
-        verificar(reservas(viajes(cuerpo(get("/v1/panel", ANA))).get(0)).size() == 2, "un webhook repetido no duplica la reserva");
+        verificar(reservas(viajes(cuerpo(get("/v1/panel", MARTINA))).get(0)).size() == 2, "un webhook repetido no duplica la reserva");
 
         // UC-5: carga manual de un auto en las mismas fechas.
-        HttpResponse<String> manual = post("/v1/reservas", ANA, """
+        HttpResponse<String> manual = post("/v1/reservas", MARTINA, """
                 {"tipo":"auto","codigoConfirmacion":"AUTO-9","inicio":"2026-12-03T09:00","fin":"2026-12-05T18:00",
                  "destino":"MAD","detalles":{"rentadora":"RentaDemo"}}""");
         verificar(manual.statusCode() == 201, "la carga manual responde 201 con la versión");
-        esperarPanel(ANA, p -> reservas(viajes(p).get(0)).size() == 3);
+        esperarPanel(MARTINA, p -> reservas(viajes(p).get(0)).size() == 3);
         verificar(true, "la reserva manual aparece en el mismo viaje");
 
-        HttpResponse<String> crucero = post("/v1/reservas", ANA, """
+        HttpResponse<String> crucero = post("/v1/reservas", MARTINA, """
                 {"tipo":"crucero","inicio":"2026-12-03T09:00"}""");
         verificar(crucero.statusCode() == 400, "un tipo de reserva no registrado se rechaza (400)");
 
         // QA-9: compartir solo con personas designadas.
-        verificar(get("/v1/panel/viajes/" + viajeId, BETO).statusCode() == 403, "una persona no designada no ve el viaje (403)");
-        verificar(post("/v1/viajes/" + viajeId + "/compartir", BETO, "{\"email\":\"carla@mail.com\"}").statusCode() == 403,
-                "solo el dueño puede compartir (403)");
-        verificar(post("/v1/viajes/" + viajeId + "/compartir", ANA, "{\"email\":\"beto@mail.com\"}").statusCode() == 201,
-                "la dueña comparte el viaje con Beto (201)");
-        verificar(get("/v1/panel/viajes/" + viajeId, BETO).statusCode() == 200, "Beto ya puede ver el viaje (200)");
-        // PermisoCambiado sale por el outbox, así que el panel de Beto se actualiza unos milisegundos después.
-        esperarPanel(BETO, p -> ((List<?>) p.get("compartidosConmigo")).size() == 1);
-        verificar(true, "el viaje aparece en 'compartidos conmigo' de Beto");
-        verificar(enviar("DELETE", "/v1/viajes/" + viajeId + "/compartir/beto@mail.com", ANA, null).statusCode() == 204,
+        verificar(get("/v1/panel/viajes/" + viajeId, NICOLAS).statusCode() == 403, "una persona no designada no ve el viaje (403)");
+        verificar(post("/v1/viajes/" + viajeId + "/compartir", NICOLAS, "{\"email\":\"nicolas@mail.com\"}").statusCode() == 403,
+                "solo la dueña puede compartir: Nicolás no puede compartirse el viaje de Martina (403)");
+        verificar(post("/v1/viajes/" + viajeId + "/compartir", MARTINA, "{\"email\":\"nicolas@mail.com\"}").statusCode() == 201,
+                "la dueña comparte el viaje con Nicolás (201)");
+        verificar(get("/v1/panel/viajes/" + viajeId, NICOLAS).statusCode() == 200, "Nicolás ya puede ver el viaje (200)");
+        // PermisoCambiado sale por el outbox, así que el panel de Nicolás se actualiza unos milisegundos después.
+        esperarPanel(NICOLAS, p -> ((List<?>) p.get("compartidosConmigo")).size() == 1);
+        verificar(true, "el viaje aparece en 'compartidos conmigo' de Nicolás");
+        verificar(enviar("DELETE", "/v1/viajes/" + viajeId + "/compartir/nicolas@mail.com", MARTINA, null).statusCode() == 204,
                 "la dueña revoca el permiso (204)");
-        verificar(get("/v1/panel/viajes/" + viajeId, BETO).statusCode() == 403, "después de revocar, Beto ya no lo ve (403)");
+        verificar(get("/v1/panel/viajes/" + viajeId, NICOLAS).statusCode() == 403, "después de revocar, Nicolás ya no lo ve (403)");
 
         // UC-6: al pasar la fecha del viaje, se archiva.
         verificar(cuerpo(post("/v1/admin/archivar?ahora=2027-01-01T00:00", null, "")).get("archivados").toString().equals("1"),
                 "el viaje terminado se archiva");
-        esperarPanel(ANA, p -> viajes(p).isEmpty() && ((List<?>) p.get("archivados")).size() == 1);
+        esperarPanel(MARTINA, p -> viajes(p).isEmpty() && ((List<?>) p.get("archivados")).size() == 1);
         verificar(true, "el viaje pasa a la sección de archivados del panel");
     }
 

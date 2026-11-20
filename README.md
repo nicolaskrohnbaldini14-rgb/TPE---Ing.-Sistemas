@@ -34,7 +34,7 @@ Después abrir **http://localhost:8080**. El puerto se cambia con la variable de
 
 ### Demo sugerida para la entrega
 
-En la página, con el usuario `ana@mail.com`:
+En la página, con el usuario `martina@mail.com`:
 
 1. **La aerolínea confirma un vuelo**: aparece "Viaje a MAD" con el vuelo y un aviso.
 2. **Llega el correo de un hotel**: el hotel se suma al **mismo viaje** (por cercanía de fechas).
@@ -42,8 +42,8 @@ En la página, con el usuario `ana@mail.com`:
 4. **La aerolínea cancela el vuelo**: el vuelo queda tachado, llega el aviso "Se canceló tu vuelo" y en **Sugerencias para vos** aparece una alternativa: UX42, el más barato, que tiene una escala.
 5. **Prefiero sin escalas**: la sugerencia cambia por IB6844, que es directo, y "Lo que aprendimos de vos" muestra que subió el peso de "sin escalas".
 6. **Rechazar**: aparece AR1134, otra opción directa (no vuelve a sugerir la rechazada). **Aceptar**: la sugerencia sale del panel.
-7. **Compartir con beto@mail.com**: cambiar el usuario a `beto@mail.com` y el viaje aparece en "Compartidos conmigo".
-8. **Pasó el viaje: archivar**: con `ana@mail.com`, el viaje pasa a "Archivados".
+7. **Compartir con nicolas@mail.com**: cambiar el usuario a `nicolas@mail.com` y el viaje aparece en "Compartidos conmigo".
+8. **Pasó el viaje: archivar**: con `martina@mail.com`, el viaje pasa a "Archivados".
 
 ---
 
