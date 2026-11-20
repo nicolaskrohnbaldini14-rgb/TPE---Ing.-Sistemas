@@ -121,8 +121,8 @@ public final class PruebaFlujo {
 
         // QA-9: compartir solo con personas designadas.
         verificar(get("/v1/panel/viajes/" + viajeId, NICOLAS).statusCode() == 403, "una persona no designada no ve el viaje (403)");
-        verificar(post("/v1/viajes/" + viajeId + "/compartir", NICOLAS, "{\"email\":\"nicolas@mail.com\"}").statusCode() == 403,
-                "solo la dueña puede compartir: Nicolás no puede compartirse el viaje de Martina (403)");
+        verificar(post("/v1/viajes/" + viajeId + "/compartir", NICOLAS, "{\"email\":\"bernardo@mail.com\"}").statusCode() == 403,
+                "solo la dueña puede compartir: Nicolás no puede compartirle a Bernardo el viaje de Martina (403)");
         verificar(post("/v1/viajes/" + viajeId + "/compartir", MARTINA, "{\"email\":\"nicolas@mail.com\"}").statusCode() == 201,
                 "la dueña comparte el viaje con Nicolás (201)");
         verificar(get("/v1/panel/viajes/" + viajeId, NICOLAS).statusCode() == 200, "Nicolás ya puede ver el viaje (200)");
