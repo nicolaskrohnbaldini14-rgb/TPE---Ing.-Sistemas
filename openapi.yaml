@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: Trotamundos – API del prototipo
-  version: 0.1.0
+  version: 0.2.0
   description: >
-    Contrato de los endpoints que implementa el prototipo (1ª entrega).
+    Contrato de los endpoints que implementa el prototipo (entrega final, con el sistema de recomendación).
     El login está simulado con el encabezado X-Usuario.
 servers:
   - url: http://localhost:8080
@@ -41,6 +41,24 @@ components:
         inicio: { type: string }
         fin: { type: string }
         reservas: { type: array, items: { $ref: "#/components/schemas/Reserva" } }
+    Sugerencia:
+      type: object
+      properties:
+        id: { type: string }
+        viajeId: { type: string }
+        tipo: { type: string, enum: [vuelo, hotel] }
+        alternativa:
+          type: object
+          description: "Opción sugerida: id, numeroVuelo u hotel, salida, precio, escalas o estrellas"
+        motivo: { type: string, example: "no tiene escalas" }
+    Pesos:
+      type: object
+      description: Cuánto pesa cada criterio para el usuario
+      properties:
+        precio: { type: number }
+        sinEscalas: { type: number }
+        horarioTemprano: { type: number }
+        estrellas: { type: number }
     Error:
       type: object
       properties:
@@ -130,6 +148,7 @@ paths:
                   viajes: { type: array, items: { $ref: "#/components/schemas/Viaje" } }
                   archivados: { type: array, items: { $ref: "#/components/schemas/Viaje" } }
                   compartidosConmigo: { type: array, items: { $ref: "#/components/schemas/Viaje" } }
+                  sugerencias: { type: array, items: { $ref: "#/components/schemas/Sugerencia" } }
   /v1/panel/viajes/{viajeId}:
     get:
       summary: Un viaje del panel; lo ven el dueño y las personas designadas
@@ -164,3 +183,54 @@ paths:
       summary: Avisos enviados al usuario (Notification)
       parameters: [ { $ref: "#/components/parameters/Usuario" } ]
       responses: { "200": { description: OK } }
+  /v1/sugerencias:
+    get:
+      summary: Sugerencias pendientes del usuario (Recommendation, UC-9)
+      parameters: [ { $ref: "#/components/parameters/Usuario" } ]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sugerencias: { type: array, items: { $ref: "#/components/schemas/Sugerencia" } }
+  /v1/sugerencias/{id}/respuesta:
+    post:
+      summary: Aceptar, rechazar o ajustar una sugerencia (human-in-the-loop, UC-10)
+      parameters: [ { $ref: "#/components/parameters/Usuario" }, { name: id, in: path, required: true, schema: { type: string } } ]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accion]
+              properties:
+                accion: { type: string, enum: [ACEPTAR, RECHAZAR, AJUSTAR] }
+                preferencia: { type: string, enum: [precio, sinEscalas, horarioTemprano, estrellas], description: "Obligatoria para AJUSTAR" }
+      responses:
+        "200":
+          description: "Devuelve la sugerencia respondida, la nueva (si se recalculó) y los pesos actualizados"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sugerencia: { $ref: "#/components/schemas/Sugerencia" }
+                  nueva: { $ref: "#/components/schemas/Sugerencia" }
+                  pesos: { $ref: "#/components/schemas/Pesos" }
+        "400": { description: Acción o preferencia inválida }
+        "404": { description: No hay una sugerencia pendiente con ese id }
+  /v1/preferencias:
+    get:
+      summary: Lo que el sistema aprendió del usuario (sus pesos)
+      parameters: [ { $ref: "#/components/parameters/Usuario" } ]
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: object, properties: { pesos: { $ref: "#/components/schemas/Pesos" } } } } }
+    delete:
+      summary: Borrar lo aprendido (privacidad); vuelve a los pesos generales
+      parameters: [ { $ref: "#/components/parameters/Usuario" } ]
+      responses: { "204": { description: Borradas } }

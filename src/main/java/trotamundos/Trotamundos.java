@@ -14,6 +14,7 @@ import trotamundos.ingesta.partnerintegration.PartnerIntegrationModulo;
 import trotamundos.itinerario.ItinerarioModulo;
 import trotamundos.notificaciones.NotificacionesModulo;
 import trotamundos.panel.PanelModulo;
+import trotamundos.recomendacion.RecomendacionModulo;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -42,7 +43,8 @@ public final class Trotamundos {
         new NotificacionesModulo(servidor, bus, tipos);
         new EmailParserModulo(bus);
         new MailConnectorModulo(servidor, bus);
-        new PartnerIntegrationModulo(servidor, bus);
+        PartnerIntegrationModulo proveedores = new PartnerIntegrationModulo(servidor, bus);
+        new RecomendacionModulo(servidor, bus, outbox, proveedores);
 
         puerto = servidor.iniciar(puertoPedido);
     }

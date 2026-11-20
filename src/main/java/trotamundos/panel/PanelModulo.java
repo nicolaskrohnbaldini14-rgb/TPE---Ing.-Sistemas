@@ -9,7 +9,8 @@ import trotamundos.panel.datos.VistaPanelRepositorio;
 import trotamundos.panel.negocio.ProyeccionPanel;
 
 /**
- * Módulo Dashboard Query. Consume ReservaActualizada, ViajeArchivado y PermisoCambiado.
+ * Módulo Dashboard Query. Consume ReservaActualizada, ViajeArchivado, PermisoCambiado,
+ * SugerenciaGenerada y SugerenciaRespondida.
  * Usa a Sharing solo a través de su interfaz pública (puedeVer).
  */
 public final class PanelModulo {
@@ -20,5 +21,7 @@ public final class PanelModulo {
         bus.suscribir(Evento.RESERVA_ACTUALIZADA, proyeccion::alActualizarReserva);
         bus.suscribir(Evento.VIAJE_ARCHIVADO, proyeccion::alArchivarViaje);
         bus.suscribir(Evento.PERMISO_CAMBIADO, proyeccion::alCambiarPermiso);
+        bus.suscribir(Evento.SUGERENCIA_GENERADA, proyeccion::alGenerarSugerencia);
+        bus.suscribir(Evento.SUGERENCIA_RESPONDIDA, proyeccion::alResponderSugerencia);
     }
 }

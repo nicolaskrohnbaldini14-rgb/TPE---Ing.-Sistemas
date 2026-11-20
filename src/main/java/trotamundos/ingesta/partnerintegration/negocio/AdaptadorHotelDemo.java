@@ -2,6 +2,8 @@ package trotamundos.ingesta.partnerintegration.negocio;
 
 import trotamundos.comun.modelo.Reserva;
 
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static trotamundos.ingesta.partnerintegration.negocio.AdaptadorProveedor.campo;
@@ -28,5 +30,29 @@ public final class AdaptadorHotelDemo implements AdaptadorProveedor {
                 campo(mensaje, "booking_ref"), estado, campo(mensaje, "check_in"), campo(mensaje, "check_out"),
                 null, campo(mensaje, "city"), Reserva.Fuente.PROVEEDOR,
                 Map.of("hotel", campo(mensaje, "hotel_name")));
+    }
+
+    /** Catálogo de ejemplo: en el sistema real, esto es una búsqueda en la API del proveedor. */
+    @Override
+    public List<Map<String, Object>> alternativas(String tipo, String origen, String destino, String fecha) {
+        if (!"hotel".equals(tipo)) {
+            return List.of();
+        }
+        return List.of(
+                hotel("Hotel Sol", destino, fecha + "T15:00", 3, 90),
+                hotel("Gran Vía Palace", destino, fecha + "T15:00", 5, 240),
+                hotel("Hostal Centro", destino, fecha + "T15:00", 2, 55));
+    }
+
+    private static Map<String, Object> hotel(String nombre, String ciudad, String entrada, int estrellas, int precio) {
+        Map<String, Object> hotel = new LinkedHashMap<>();
+        hotel.put("id", "hotel|" + nombre);
+        hotel.put("tipo", "hotel");
+        hotel.put("hotel", nombre);
+        hotel.put("destino", ciudad);
+        hotel.put("salida", entrada);
+        hotel.put("estrellas", estrellas);
+        hotel.put("precio", precio);
+        return hotel;
     }
 }

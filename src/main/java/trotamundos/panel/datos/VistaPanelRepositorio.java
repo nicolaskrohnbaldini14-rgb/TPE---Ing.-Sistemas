@@ -32,6 +32,23 @@ public final class VistaPanelRepositorio {
     private final Map<String, ViajeVista> viajes = new LinkedHashMap<>();
     private final Map<String, Integer> versiones = new HashMap<>();
     private final Map<String, Set<String>> compartidosCon = new HashMap<>();
+    private final Map<String, Map<String, Object>> sugerencias = new LinkedHashMap<>();
+
+    public void guardarSugerencia(String sugerenciaId, Map<String, Object> sugerencia) {
+        sugerencias.put(sugerenciaId, sugerencia);
+    }
+
+    public void quitarSugerencia(String sugerenciaId) {
+        sugerencias.remove(sugerenciaId);
+    }
+
+    public void quitarSugerenciasDeViaje(String viajeId) {
+        sugerencias.values().removeIf(s -> viajeId.equals(s.get("viajeId")));
+    }
+
+    public List<Map<String, Object>> sugerenciasDe(String usuario) {
+        return sugerencias.values().stream().filter(s -> usuario.equals(s.get("usuario"))).toList();
+    }
 
     public ViajeVista viajeOCrear(String viajeId, String duenio, String nombre) {
         return viajes.computeIfAbsent(viajeId, id -> new ViajeVista(id, duenio, nombre));

@@ -71,6 +71,37 @@ public final class PruebaFlujo {
         verificar(String.valueOf(cuerpo(get("/v1/notificaciones", ANA)).get("avisos")).contains("Se canceló tu vuelo AR1132"),
                 "se avisa la cancelación al usuario");
 
+        // UC-9 + QA-13: ante la cancelación aparece una alternativa en el panel.
+        Map<String, Object> conSugerencia = esperarPanel(ANA, p -> sugerencias(p).size() == 1);
+        Map<String, Object> primera = sugerencias(conSugerencia).get(0);
+        verificar("UX42".equals(alternativa(primera).get("numeroVuelo")),
+                "se sugiere un vuelo alternativo: el más barato (UX42, con escala), porque " + primera.get("motivo"));
+
+        // UC-10: el usuario ajusta "prefiero sin escalas" y la sugerencia cambia.
+        Map<String, Object> ajuste = cuerpo(post("/v1/sugerencias/" + primera.get("id") + "/respuesta", ANA,
+                "{\"accion\":\"AJUSTAR\",\"preferencia\":\"sinEscalas\"}"));
+        verificar("IB6844".equals(alternativa(mapa(ajuste, "nueva")).get("numeroVuelo")),
+                "después de pedir 'sin escalas', la nueva sugerencia es un vuelo directo (IB6844)");
+        esperarPanel(ANA, p -> sugerencias(p).size() == 1
+                && "IB6844".equals(alternativa(sugerencias(p).get(0)).get("numeroVuelo")));
+        verificar(true, "el panel reemplaza la sugerencia vieja por la nueva");
+
+        // Rechazar: no se vuelve a sugerir esa opción y se respeta la preferencia aprendida.
+        Map<String, Object> rechazo = cuerpo(post("/v1/sugerencias/" + mapa(ajuste, "nueva").get("id") + "/respuesta", ANA,
+                "{\"accion\":\"RECHAZAR\"}"));
+        verificar("AR1134".equals(alternativa(mapa(rechazo, "nueva")).get("numeroVuelo")),
+                "al rechazar, se sugiere otra opción y sigue siendo directa (AR1134)");
+
+        // Aceptar: la sugerencia sale del panel y los pesos del usuario quedan reforzados.
+        cuerpo(post("/v1/sugerencias/" + mapa(rechazo, "nueva").get("id") + "/respuesta", ANA, "{\"accion\":\"ACEPTAR\"}"));
+        esperarPanel(ANA, p -> sugerencias(p).isEmpty());
+        verificar(true, "al aceptar, la sugerencia sale del panel");
+        Map<String, Object> pesos = mapa(cuerpo(get("/v1/preferencias", ANA)), "pesos");
+        verificar(((Number) pesos.get("sinEscalas")).doubleValue() > 1.0,
+                "el sistema aprendió la preferencia: el peso de 'sin escalas' pasó de 0,5 a " + pesos.get("sinEscalas"));
+        verificar(post("/v1/sugerencias/" + primera.get("id") + "/respuesta", ANA, "{\"accion\":\"ACEPTAR\"}").statusCode() == 404,
+                "una sugerencia ya respondida no se puede responder de nuevo (404)");
+
         // Idempotencia: el mismo webhook repetido no duplica nada.
         post("/v1/webhooks/aerolinea-demo", null, cancelacion);
         Thread.sleep(300);
@@ -137,6 +168,20 @@ public final class PruebaFlujo {
     @SuppressWarnings("unchecked")
     private static List<Map<String, Object>> viajes(Map<String, Object> panel) {
         return (List<Map<String, Object>>) panel.get("viajes");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> sugerencias(Map<String, Object> panel) {
+        return (List<Map<String, Object>>) panel.get("sugerencias");
+    }
+
+    private static Map<String, Object> alternativa(Map<String, Object> sugerencia) {
+        return mapa(sugerencia, "alternativa");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> mapa(Map<String, Object> padre, String campo) {
+        return (Map<String, Object>) padre.get(campo);
     }
 
     @SuppressWarnings("unchecked")

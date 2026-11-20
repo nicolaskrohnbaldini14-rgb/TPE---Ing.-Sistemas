@@ -27,6 +27,9 @@
   .acciones { display:grid; gap:8px; }
   .aviso { font-size:14px; padding:6px 0; border-top:1px dashed var(--borde); }
   .vacio { color:var(--suave); font-size:14px; }
+  .sugerencia { border:1px solid var(--acento); border-radius:8px; padding:10px; margin-bottom:10px; font-size:14px; }
+  .sugerencia .botones { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .sugerencia button { padding:5px 8px; font-size:13px; }
 </style>
 </head>
 <body>
@@ -55,6 +58,11 @@
         <button data-accion="archivar">🗄 Pasó el viaje: archivar</button>
       </div>
       <p class="meta" id="resultado"></p>
+    </section>
+    <section>
+      <h2>Sugerencias para vos</h2>
+      <div id="sugerencias"></div>
+      <p class="meta" id="preferencias"></p>
     </section>
     <section>
       <h2>Avisos</h2>
@@ -130,12 +138,64 @@ function pintarViajes(lista, contenedor) {
   }
 }
 
+const respuestas = [
+  ['Aceptar', { accion: 'ACEPTAR' }],
+  ['Rechazar', { accion: 'RECHAZAR' }],
+  ['Prefiero sin escalas', { accion: 'AJUSTAR', preferencia: 'sinEscalas' }],
+  ['Prefiero lo más barato', { accion: 'AJUSTAR', preferencia: 'precio' }],
+  ['Prefiero mejor categoría', { accion: 'AJUSTAR', preferencia: 'estrellas' }],
+];
+
+function describirAlternativa(a) {
+  if (a.tipo === 'vuelo') {
+    return '✈ ' + a.numeroVuelo + ' ' + a.origen + '→' + a.destino + ' · sale ' + fecha(a.salida)
+      + ' · ' + (a.escalas === 0 ? 'directo' : a.escalas + ' escala') + ' · US$ ' + a.precio;
+  }
+  return '🏨 ' + a.hotel + ' · ' + '★'.repeat(a.estrellas) + ' · US$ ' + a.precio + ' la noche';
+}
+
+function pintarSugerencias(lista) {
+  const contenedor = $('sugerencias');
+  contenedor.innerHTML = '';
+  if (!lista.length) { contenedor.innerHTML = '<p class="vacio">Sin sugerencias por ahora.</p>'; return; }
+  for (const s of lista) {
+    const div = document.createElement('div');
+    div.className = 'sugerencia';
+    const que = document.createElement('div');
+    que.textContent = describirAlternativa(s.alternativa);
+    const porque = document.createElement('div');
+    porque.className = 'meta';
+    porque.textContent = 'Te lo sugerimos porque ' + s.motivo + '.';
+    const botones = document.createElement('div');
+    botones.className = 'botones';
+    for (const [texto, cuerpo] of respuestas) {
+      if (cuerpo.preferencia === 'estrellas' && s.tipo !== 'hotel') continue;
+      if (cuerpo.preferencia === 'sinEscalas' && s.tipo !== 'vuelo') continue;
+      const b = document.createElement('button');
+      b.textContent = texto;
+      b.addEventListener('click', async () => {
+        const r = await api('POST', '/v1/sugerencias/' + s.id + '/respuesta', cuerpo);
+        $('resultado').textContent = 'Respuesta ' + r.estado + ': ' + JSON.stringify(r.datos);
+        setTimeout(refrescar, 300);
+      });
+      botones.append(b);
+    }
+    div.append(que, porque, botones);
+    contenedor.append(div);
+  }
+}
+
 async function refrescar() {
   if (!usuario()) return;
   const panel = (await api('GET', '/v1/panel')).datos;
   pintarViajes(panel.viajes, $('viajes'));
   pintarViajes(panel.compartidosConmigo, $('compartidos'));
   pintarViajes(panel.archivados, $('archivados'));
+  pintarSugerencias(panel.sugerencias || []);
+  const pesos = (await api('GET', '/v1/preferencias')).datos.pesos;
+  const nombres = { precio: 'precio', sinEscalas: 'sin escalas', horarioTemprano: 'salir temprano', estrellas: 'categoría' };
+  $('preferencias').textContent = 'Lo que aprendimos de vos (cuánto pesa cada cosa): '
+    + Object.entries(pesos).map(([k, v]) => (nombres[k] || k) + ' ' + v).join(' · ');
   const avisos = (await api('GET', '/v1/notificaciones')).datos.avisos;
   $('avisos').innerHTML = '';
   if (!avisos.length) $('avisos').innerHTML = '<p class="vacio">Sin avisos.</p>';

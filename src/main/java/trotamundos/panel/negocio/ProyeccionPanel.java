@@ -53,6 +53,26 @@ public final class ProyeccionPanel {
 
     public synchronized void alArchivarViaje(Evento evento) {
         repositorio.viaje(evento.texto("viajeId")).ifPresent(v -> v.estado = "ARCHIVADO");
+        repositorio.quitarSugerenciasDeViaje(evento.texto("viajeId"));
+    }
+
+    /** ADR-0018: la sugerencia se guarda en la vista, así se lee junto con el panel en una sola consulta. */
+    public synchronized void alGenerarSugerencia(Evento evento) {
+        if (evento.texto("reemplazaA") != null) {
+            repositorio.quitarSugerencia(evento.texto("reemplazaA"));
+        }
+        Map<String, Object> sugerencia = new LinkedHashMap<>();
+        sugerencia.put("id", evento.texto("sugerenciaId"));
+        sugerencia.put("usuario", evento.texto("usuario"));
+        sugerencia.put("viajeId", evento.texto("viajeId"));
+        sugerencia.put("tipo", evento.texto("tipo"));
+        sugerencia.put("alternativa", evento.mapa("alternativa"));
+        sugerencia.put("motivo", evento.texto("motivo"));
+        repositorio.guardarSugerencia(evento.texto("sugerenciaId"), sugerencia);
+    }
+
+    public synchronized void alResponderSugerencia(Evento evento) {
+        repositorio.quitarSugerencia(evento.texto("sugerenciaId"));
     }
 
     public synchronized void alCambiarPermiso(Evento evento) {
@@ -84,6 +104,7 @@ public final class ProyeccionPanel {
         panel.put("viajes", activos);
         panel.put("archivados", archivados);
         panel.put("compartidosConmigo", compartidos);
+        panel.put("sugerencias", repositorio.sugerenciasDe(usuario));
         return panel;
     }
 
