@@ -8,8 +8,9 @@ import java.util.Set;
 /** Una alternativa sugerida al usuario para reemplazar una reserva cancelada. */
 public final class Sugerencia {
 
-    public enum Estado { PENDIENTE, ACEPTADA, RECHAZADA, AJUSTADA }
-
+        /** DESCARTADA: el viaje terminó antes de que el usuario respondiera; no cuenta como feedback. */
+    public enum Estado { PENDIENTE, ACEPTADA, RECHAZADA, AJUSTADA, DESCARTADA }
+    
     private final String id;
     private final String usuario;
     private final String viajeId;

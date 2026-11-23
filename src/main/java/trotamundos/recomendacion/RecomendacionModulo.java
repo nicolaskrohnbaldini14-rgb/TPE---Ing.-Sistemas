@@ -11,7 +11,7 @@ import trotamundos.recomendacion.negocio.PuntajePorPreferencias;
 import trotamundos.recomendacion.negocio.ServicioRecomendacion;
 
 /**
- * Módulo Recommendation (Iteración 5). Consume ReservaActualizada; publica SugerenciaGenerada y
+ * Módulo Recommendation (Iteración 5). Consume ReservaActualizada y ViajeArchivado; publica SugerenciaGenerada y
  * SugerenciaRespondida por el outbox. Usa a Partner Integration solo por buscarAlternativas().
  */
 public final class RecomendacionModulo {
@@ -22,5 +22,6 @@ public final class RecomendacionModulo {
                 new RecomendacionRepositorio(), new PuntajePorPreferencias(), proveedores, outbox);
         new RecomendacionApi(servicio).registrar(servidor);
         bus.suscribir(Evento.RESERVA_ACTUALIZADA, servicio::alActualizarReserva);
+        bus.suscribir(Evento.VIAJE_ARCHIVADO, servicio::alArchivarViaje);
     }
 }

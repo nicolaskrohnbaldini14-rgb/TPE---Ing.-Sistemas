@@ -117,6 +117,17 @@ public final class ServicioRecomendacion {
         return resultado;
     }
 
+        /**
+     * Cuando un viaje se archiva, sus sugerencias pendientes dejan de tener sentido: se descartan para que
+     * no se puedan ver ni responder. No se tocan los pesos, porque el usuario no respondió nada.
+     */
+    public synchronized void alArchivarViaje(Evento evento) {
+        for (Sugerencia sugerencia : repositorio.pendientesDeViaje(evento.texto("viajeId"))) {
+            sugerencia.responder(Sugerencia.Estado.DESCARTADA);
+        }
+    }
+
+
     public synchronized List<Map<String, Object>> sugerenciasDe(String usuario) {
         return repositorio.sugerenciasDe(usuario).stream()
                 .filter(s -> s.estado() == Sugerencia.Estado.PENDIENTE)

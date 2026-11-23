@@ -133,11 +133,26 @@ public final class PruebaFlujo {
                 "la dueña revoca el permiso (204)");
         verificar(get("/v1/panel/viajes/" + viajeId, NICOLAS).statusCode() == 403, "después de revocar, Nicolás ya no lo ve (403)");
 
+        // Se cancela otro hotel del viaje y queda una sugerencia sin responder antes de archivar.
+        post("/v1/webhooks/hotel-demo", null, """
+                {"booking_ref":"H-900","guest":"martina@mail.com","hotel_name":"Gran Vía","city":"MAD",
+                 "check_in":"2026-12-02T15:00","check_out":"2026-12-06T11:00","status":"OK"}""");
+        post("/v1/webhooks/hotel-demo", null, """
+                {"booking_ref":"H-900","guest":"martina@mail.com","hotel_name":"Gran Vía","city":"MAD",
+                 "check_in":"2026-12-02T15:00","check_out":"2026-12-06T11:00","status":"CANCELLED"}""");
+        Map<String, Object> sinResponder = sugerencias(esperarPanel(MARTINA, p -> sugerencias(p).size() == 1)).get(0);
+
         // UC-6: al pasar la fecha del viaje, se archiva.
         verificar(cuerpo(post("/v1/admin/archivar?ahora=2027-01-01T00:00", null, "")).get("archivados").toString().equals("1"),
                 "el viaje terminado se archiva");
         esperarPanel(MARTINA, p -> viajes(p).isEmpty() && ((List<?>) p.get("archivados")).size() == 1);
         verificar(true, "el viaje pasa a la sección de archivados del panel");
+
+        // El recomendador consume ViajeArchivado: la sugerencia pendiente de ese viaje se descarta.
+        esperarSugerencias(MARTINA, List::isEmpty);
+        verificar(true, "al archivar el viaje, su sugerencia pendiente desaparece de /v1/sugerencias");
+        verificar(post("/v1/sugerencias/" + sinResponder.get("id") + "/respuesta", MARTINA, "{\"accion\":\"ACEPTAR\"}").statusCode() == 404,
+                "una sugerencia de un viaje archivado ya no se puede responder (404)");
     }
 
     // ----- ayudas -----
@@ -163,6 +178,17 @@ public final class PruebaFlujo {
             Thread.sleep(100);
         }
         throw new AssertionError("el panel de " + usuario + " no llegó al estado esperado: " + cuerpo(get("/v1/panel", usuario)));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void esperarSugerencias(String usuario, Predicate<List<Map<String, Object>>> condicion) throws Exception {
+        for (int intento = 0; intento < 30; intento++) {
+            if (condicion.test((List<Map<String, Object>>) cuerpo(get("/v1/sugerencias", usuario)).get("sugerencias"))) {
+                return;
+            }
+            Thread.sleep(100);
+        }
+        throw new AssertionError("las sugerencias de " + usuario + " no llegaron al estado esperado: " + cuerpo(get("/v1/sugerencias", usuario)));
     }
 
     @SuppressWarnings("unchecked")

@@ -54,6 +54,13 @@ public final class RecomendacionRepositorio {
         return sugerencias.values().stream().filter(s -> s.usuario().equals(usuario)).toList();
     }
 
+    
+    public List<Sugerencia> pendientesDeViaje(String viajeId) {
+        return sugerencias.values().stream()
+                .filter(s -> s.viajeId().equals(viajeId) && s.estado() == Sugerencia.Estado.PENDIENTE)
+                .toList();
+    }
+
     public void guardarRespuesta(Map<String, Object> respuesta) {
         respuestas.add(respuesta);
     }
